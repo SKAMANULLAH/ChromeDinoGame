@@ -37,3 +37,12 @@ highscores.txt
 Thumbs.db
 .DS_Store
 *.log
+ChromeDino_All_In_One_Package/
+
+debug/
+release/
+*.stash
+*_resource.rc
+
+.qtcreator/
+*.pro.user*
