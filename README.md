@@ -45,6 +45,13 @@ cmake --build . --config Release
 .\ChromeDinoRaster.exe
 ```
 
+#### Option C: Qt Creator IDE (1-Click Open via `ChromeDino.pro` or `CMakeLists.txt`)
+1. Open **Qt Creator**.
+2. Click **File -> Open File or Project...**
+3. Select **`ChromeDino.pro`** (for classic qmake) OR **`CMakeLists.txt`** (for modern CMake).
+4. Select your configured Desktop Qt Kit (e.g. MinGW 64-bit or MSVC) and click **Configure Project**.
+5. Press **Ctrl + R** (or the green Play button) to compile and run!
+
 ---
 
 ### 2. Android Mobile
@@ -196,7 +203,8 @@ Dino/
 ├── ChromeDino_LineByLine_Defense_Guide.pdf # 13-Page Line-by-Line Code Dissection Manual
 ├── ChromeDino_Viva_Defense_Guide.pdf       # 10-Page HLD & Viva Defense Guide
 ├── CG_LAB_REPORT.md                   # Formal Computer Graphics Lab Report
-├── CMakeLists.txt                     # Cross-platform CMake build configuration
+├── CMakeLists.txt                     # Modern cross-platform CMake build configuration
+├── ChromeDino.pro                     # Classic Qt Creator qmake project configuration
 ├── build.bat                          # 1-click Windows compilation script
 ├── build_and_run_linux.sh             # 1-click Linux compilation script
 ├── BUILD_ANDROID_APK.bat              # 1-click Android APK build script
