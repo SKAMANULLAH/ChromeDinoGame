@@ -1,0 +1,39 @@
+# Build outputs and temporary caches
+build/
+build-linux/
+deploy/
+standalone/*.o
+standalone/*.zip
+standalone/*.tar.gz
+standalone/linux_stage/
+standalone/resource.*
+
+# Android intermediate build artifacts
+android-apk/bin/
+android-apk/gen/
+android-apk/*.apk
+android-apk/*.dex
+android-apk/*.keystore
+
+# Compiled objects and heavy binaries
+*.o
+*.obj
+*.dll
+*.exe
+*.zip
+*.idsig
+
+# Keep lightweight release assets and documentation
+!ChromeDino.apk
+!ChromeDino.run
+!*.pdf
+
+# Runtime scores and scratch files
+highscores.txt
+
+# OS and Editor metadata
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+*.log
