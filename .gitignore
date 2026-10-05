@@ -2,6 +2,8 @@
 build/
 build-linux/
 deploy/
+mini/build/
+mini/dist/
 standalone/*.o
 standalone/*.zip
 standalone/*.tar.gz
