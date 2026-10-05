@@ -674,10 +674,12 @@ void DinoGame::drawScore(SoftwareRasterizer& rasterizer) {
     char hiBuf[32];
     std::snprintf(hiBuf, sizeof(hiBuf), "HI %05d", m_highScore);
 
-    // 1. Top-Right Score Card
+    // 1. Top-Right Score Card (positioned to the left of the [SET] button with 8px margin)
     int scoreBoxW = (m_highScore > 0) ? 170 : 85;
     int scoreBoxH = 26;
-    int scoreBoxX = m_width - scoreBoxW - 8;
+    int gearW = 38;
+    int gearX = m_width - gearW - 8;
+    int scoreBoxX = gearX - scoreBoxW - 8;
     int scoreBoxY = 8;
 
     for (int y = scoreBoxY; y < scoreBoxY + scoreBoxH; ++y) {
@@ -983,10 +985,10 @@ void DinoGame::drawSettingsModal(SoftwareRasterizer& rasterizer) {
 
 void DinoGame::drawVirtualButtons(SoftwareRasterizer& rasterizer) {
     // 1. Settings Gear button in top-right
-    int gearX = 754;
-    int gearY = 8;
     int gearW = 38;
     int gearH = 26;
+    int gearX = m_width - gearW - 8;
+    int gearY = 8;
     for (int y = gearY; y < gearY + gearH; ++y) {
         for (int x = gearX; x < gearX + gearW; ++x) {
             rasterizer.framebuffer().setPixelBlend(x, y, 0xCC10141D);

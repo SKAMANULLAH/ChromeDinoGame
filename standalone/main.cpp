@@ -16,13 +16,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
 
     std::wstring exePath = appDir + L"\\ChromeDinoRaster.exe";
     std::wstring zipPath = appDir + L"\\payload.zip";
+    std::wstring tagPath = appDir + L"\\build_tag.txt";
+    const char* BUILD_TAG = "20261005_v2_score_fix";
 
-    // 2. Check if already extracted
-    WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+    // 2. Check if already extracted and matches current build tag
     bool needExtract = true;
-    if (GetFileAttributesExW(exePath.c_str(), GetFileExInfoStandard, &fileInfo)) {
-        if (fileInfo.nFileSizeLow > 100000) {
-            needExtract = false;
+    HANDLE hTag = CreateFileW(tagPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hTag != INVALID_HANDLE_VALUE) {
+        char tagBuf[32] = {0};
+        DWORD bytesRead = 0;
+        ReadFile(hTag, tagBuf, sizeof(tagBuf) - 1, &bytesRead, NULL);
+        CloseHandle(hTag);
+        if (std::string(tagBuf) == BUILD_TAG) {
+            WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+            if (GetFileAttributesExW(exePath.c_str(), GetFileExInfoStandard, &fileInfo) && fileInfo.nFileSizeLow > 100000) {
+                needExtract = false;
+            }
         }
     }
 
@@ -49,6 +58,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
                     CloseHandle(pi.hThread);
                 }
                 DeleteFileW(zipPath.c_str());
+
+                // Save current build tag
+                HANDLE hTagOut = CreateFileW(tagPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (hTagOut != INVALID_HANDLE_VALUE) {
+                    DWORD w = 0;
+                    WriteFile(hTagOut, BUILD_TAG, (DWORD)strlen(BUILD_TAG), &w, NULL);
+                    CloseHandle(hTagOut);
+                }
             }
         }
     }
