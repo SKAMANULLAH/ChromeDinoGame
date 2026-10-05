@@ -23,10 +23,12 @@ android-apk/*.keystore
 *.zip
 *.idsig
 
-# Keep lightweight release assets and documentation
+# PDFs and documentation
+*.pdf
+
+# Keep lightweight release assets
 !ChromeDino.apk
 !ChromeDino.run
-!*.pdf
 
 # Runtime scores and scratch files
 highscores.txt

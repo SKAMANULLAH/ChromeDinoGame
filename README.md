@@ -144,17 +144,17 @@ Press **`TAB`** or **`F2`** at any time to freeze the game and open the **Live A
 
 ## 📚 Viva Defense & Academic Documentation
 
-Two comprehensive master guides are provided for examination and viva defense:
+Comprehensive documentation is provided for laboratory presentation and viva defense:
 
-1. **[`ChromeDino_LineByLine_Defense_Guide.pdf`](ChromeDino_LineByLine_Defense_Guide.pdf)** (13 Pages):
-   - **Line-by-line C++ code dissection** with plain-English explanation tables for every algorithm and physics function.
+1. **[`CG_LAB_REPORT.md`](CG_LAB_REPORT.md)**:
+   - Full academic laboratory report formatted with theory, mathematical derivations, algorithm pseudo-code, and time/space complexity analysis.
+2. **`ChromeDino_LineByLine_Defense_Guide.pdf`** *(Included in offline bundle)*:
+   - **13-Page line-by-line C++ code dissection** with plain-English explanation tables for every algorithm and physics function.
    - Exact 20-second spoken answers for tricky examiner questions (e.g. *"Why is $dy$ negative in Bresenham?"*, *"Why $1-r$ instead of $\frac{5}{4}-r$?"*).
    - Complete memory layout, Euler integration, and 2-tier collision pipeline analysis.
-2. **[`ChromeDino_Viva_Defense_Guide.pdf`](ChromeDino_Viva_Defense_Guide.pdf)** (10 Pages):
-   - High-Level Design (HLD) architecture diagrams and algorithm derivations.
+3. **`ChromeDino_Viva_Defense_Guide.pdf`** *(Included in offline bundle)*:
+   - **10-Page HLD architecture guide** and algorithm derivations.
    - Top 10 viva defense questions with examiner score rubrics.
-3. **[`CG_LAB_REPORT.md`](CG_LAB_REPORT.md)**:
-   - Full academic laboratory report formatted with theory, mathematical derivations, algorithm pseudo-code, and complexity analysis.
 
 ---
 
@@ -197,11 +197,8 @@ Dino/
 │   ├── main.cpp                       # Silent unpacker (%LOCALAPPDATA%\ChromeDinoApp)
 │   ├── icon.rc                        # Windows PE resource icon script
 │   └── icon.ico                       # Embedded 256x256 application icon
-├── ChromeDino.exe                     # Standalone Windows Executable (36.4 MB)
 ├── ChromeDino.apk                     # Standalone Signed Android App (21 KB)
 ├── ChromeDino.run                     # Standalone Linux Self-Extracting Runner (62 KB)
-├── ChromeDino_LineByLine_Defense_Guide.pdf # 13-Page Line-by-Line Code Dissection Manual
-├── ChromeDino_Viva_Defense_Guide.pdf       # 10-Page HLD & Viva Defense Guide
 ├── CG_LAB_REPORT.md                   # Formal Computer Graphics Lab Report
 ├── CMakeLists.txt                     # Modern cross-platform CMake build configuration
 ├── ChromeDino.pro                     # Classic Qt Creator qmake project configuration
