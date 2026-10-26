@@ -1,16 +1,19 @@
 #include "Dino.h"
+#include "Terrain.h"
 #include "../graphics/SpriteData.h"
 
 Dino::Dino(int groundY)
-    : m_groundY(groundY)
+    : m_groundY(groundY), m_currentGroundY(static_cast<float>(groundY))
 {
     reset();
 }
 
 void Dino::reset() {
     m_state = DinoState::Idle;
+    m_currentGroundY = static_cast<float>(m_groundY);
+    m_isOnPlatform = false;
     m_x = 50;
-    m_y = static_cast<float>(m_groundY - SpriteData::dinoIdle().height());
+    m_y = static_cast<float>(m_currentGroundY - SpriteData::dinoIdle().height());
     m_vy = 0.0f;
     m_tiltAngle = 0.0f;
     m_isDuckingInput = false;
@@ -36,6 +39,7 @@ bool Dino::startJump() {
         m_jumpBufferTimer = 0.0f;
         m_coyoteTimer = 0.0f;
         m_didDoubleJump = false;
+        m_isOnPlatform = false;
         return true;
     } else if (m_state == DinoState::Jumping) {
         // Double Jump power-up execution (consumes 1 charge)
@@ -66,20 +70,26 @@ void Dino::setDucking(bool ducking) {
     m_isDuckingInput = ducking;
     if (m_state == DinoState::Running && ducking) {
         m_state = DinoState::Ducking;
-        m_y = static_cast<float>(m_groundY - SpriteData::dinoDuck1().height());
+        m_y = m_currentGroundY - static_cast<float>(SpriteData::dinoDuck1().height());
     } else if (m_state == DinoState::Ducking && !ducking) {
         m_state = DinoState::Running;
-        m_y = static_cast<float>(m_groundY - SpriteData::dinoIdle().height());
+        m_y = m_currentGroundY - static_cast<float>(SpriteData::dinoIdle().height());
     }
 }
 
 void Dino::kill() {
     m_state = DinoState::Dead;
     m_vy = 0.0f;
-    m_y = static_cast<float>(m_groundY - SpriteData::dinoDead().height());
+    m_y = m_currentGroundY - static_cast<float>(SpriteData::dinoDead().height());
 }
 
-void Dino::update(float dt, ParticleSystem& particles) {
+void Dino::boostUpward(float vy) {
+    m_state = DinoState::Jumping;
+    m_vy = vy;
+    m_didDoubleJump = false;
+}
+
+void Dino::update(float dt, ParticleSystem& particles, Terrain* terrain, float /*gameSpeed*/) {
     if (m_state == DinoState::Dead) return;
 
     // Eye blinking timer
@@ -96,8 +106,16 @@ void Dino::update(float dt, ParticleSystem& particles) {
         m_jumpBufferTimer -= dt;
     }
 
+    float footX = (m_state == DinoState::Ducking) ? (m_x + 24.0f) : (m_x + 16.0f);
+    int currentH = currentSprite().height();
+    float footY = m_y + static_cast<float>(currentH);
+    float fallbackGroundY = static_cast<float>(m_groundY);
+
     if (m_state == DinoState::Idle) {
-        m_y = static_cast<float>(m_groundY - SpriteData::dinoIdle().height());
+        m_currentGroundY = terrain ? terrain->getGroundHeightAt(footX) : fallbackGroundY;
+        m_y = m_currentGroundY - static_cast<float>(SpriteData::dinoIdle().height());
+        m_vy = 0.0f;
+        m_tiltAngle = 0.0f;
         return;
     }
 
@@ -110,12 +128,43 @@ void Dino::update(float dt, ParticleSystem& particles) {
             m_animFrame = (m_animFrame + 1) % 2;
         }
 
+        // Surface tracking (Dunes, Flats, Platforms)
+        if (terrain) {
+            bool onPlat = false;
+            FloatingPlatform* plat = nullptr;
+            float targetGroundY = terrain->getSurfaceHeightAt(footX, footY, m_vy, onPlat, plat);
+
+            // Did the ground drop away (walked off ledge or floating platform edge)?
+            if (targetGroundY - footY > 14.0f) {
+                m_state = DinoState::Jumping;
+                m_vy = 0.0f;
+                m_coyoteTimer = 0.08f;
+                m_isOnPlatform = false;
+            } else {
+                m_currentGroundY = targetGroundY;
+                m_y = m_currentGroundY - static_cast<float>(currentH);
+                m_isOnPlatform = onPlat;
+
+                // Dynamic slope pitch matching (Dino Run DX feel!)
+                if (!onPlat) {
+                    float slopeDeg = terrain->getSlopeAngleAt(footX);
+                    slopeDeg = std::clamp(slopeDeg, -28.0f, 28.0f);
+                    m_tiltAngle = m_tiltAngle * 0.70f + slopeDeg * 0.30f;
+                } else {
+                    m_tiltAngle = m_tiltAngle * 0.80f;
+                }
+            }
+        } else {
+            m_currentGroundY = fallbackGroundY;
+            m_y = m_currentGroundY - static_cast<float>(currentH);
+            m_tiltAngle = 0.0f;
+        }
+
         m_dustTimer += dt;
         if (m_dustTimer >= 0.16f) {
             m_dustTimer = 0.0f;
-            // Alternating foot positions
-            float footX = (m_animFrame == 0) ? (m_x + 8.0f) : (m_x + 18.0f);
-            particles.emitDustPuff(footX, m_groundY - 1.0f, 2);
+            float puffX = (m_animFrame == 0) ? (m_x + 8.0f) : (m_x + 18.0f);
+            particles.emitDustPuff(puffX, m_currentGroundY - 1.0f, 2);
         }
     } else {
         if (m_coyoteTimer > 0.0f) {
@@ -123,20 +172,41 @@ void Dino::update(float dt, ParticleSystem& particles) {
         }
     }
 
-    // Airborne physics
+    // Airborne physics (Jumping / Falling)
     if (m_state == DinoState::Jumping) {
         float effectiveGravity = (m_isDuckingInput && m_vy > 0.0f) ? m_fastFallGravity : m_gravity;
         m_vy += effectiveGravity * dt;
         m_y += m_vy * dt;
+        footY = m_y + static_cast<float>(currentH);
 
-        float groundStandY = static_cast<float>(m_groundY - SpriteData::dinoIdle().height());
-        float groundDuckY = static_cast<float>(m_groundY - SpriteData::dinoDuck1().height());
+        // Ceiling collision in caves (bonking head on cave ceiling)
+        if (terrain) {
+            float ceilY = terrain->getCeilingHeightAt(footX);
+            if (ceilY > 0.0f && m_y < ceilY) {
+                m_y = ceilY;
+                if (m_vy < 0.0f) {
+                    m_vy = 0.0f;
+                    particles.emitDustPuff(footX, ceilY + 1.0f, 3, 0xFF888888);
+                }
+            }
+        }
 
-        // Landed on ground
-        if (m_y >= (m_isDuckingInput ? groundDuckY : groundStandY)) {
+        // Landing surface query
+        bool onPlat = false;
+        FloatingPlatform* plat = nullptr;
+        float landingY = terrain ? terrain->getLandingSurfaceAt(footX, footY, m_vy, onPlat, plat)
+                                 : fallbackGroundY;
+        m_currentGroundY = landingY;
+
+        float groundStandY = landingY - static_cast<float>(SpriteData::dinoIdle().height());
+        float groundDuckY = landingY - static_cast<float>(SpriteData::dinoDuck1().height());
+
+        // Landed on surface
+        if (m_vy >= 0.0f && m_y >= (m_isDuckingInput ? groundDuckY : groundStandY)) {
             m_vy = 0.0f;
             m_tiltAngle = 0.0f;
-            particles.emitDustPuff(m_x + 12.0f, m_groundY - 1.0f, 4);
+            m_isOnPlatform = onPlat;
+            particles.emitDustPuff(m_x + 12.0f, landingY - 1.0f, 4);
 
             if (m_isDuckingInput) {
                 m_state = DinoState::Ducking;
@@ -155,8 +225,6 @@ void Dino::update(float dt, ParticleSystem& particles) {
             // Dynamic tilt based on vertical velocity
             m_tiltAngle = std::clamp(m_vy * 0.035f, -14.0f, 20.0f);
         }
-    } else {
-        m_tiltAngle = 0.0f;
     }
 }
 
@@ -210,7 +278,7 @@ void Dino::render(SoftwareRasterizer& rasterizer, bool nightMode, int score) {
 
     // 1. Dynamic Drop Shadow (Midpoint Ellipse with distance scaling)
     if (m_state != DinoState::Dead) {
-        float standY = static_cast<float>(m_groundY - SpriteData::dinoIdle().height());
+        float standY = m_currentGroundY - static_cast<float>(SpriteData::dinoIdle().height());
         float jumpHeight = std::max(0.0f, standY - m_y);
 
         int shadowRx = (m_state == DinoState::Ducking) ? 24 : std::max(6, 18 - static_cast<int>(jumpHeight * 0.12f));
@@ -221,7 +289,7 @@ void Dino::render(SoftwareRasterizer& rasterizer, bool nightMode, int score) {
         uint32_t shadowCol = Framebuffer::packARGB(shadowAlpha, 30, 30, 35);
         int shadowCenterX = (m_state == DinoState::Ducking) ? (m_x + 28) : (m_x + 20);
 
-        rasterizer.fillEllipseMidpoint(shadowCenterX, m_groundY + 1, shadowRx, shadowRy, shadowCol);
+        rasterizer.fillEllipseMidpoint(shadowCenterX, static_cast<int>(m_currentGroundY) + 1, shadowRx, shadowRy, shadowCol);
     }
 
     // 2. Base Dino Sprite Blit (with 2D Affine Rotation during jumps!)

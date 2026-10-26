@@ -22,6 +22,7 @@ SOURCES += \
     src/graphics/SpriteData.cpp \
     src/graphics/SoftwareRasterizer.cpp \
     src/game/Dino.cpp \
+    src/game/Terrain.cpp \
     src/game/Obstacle.cpp \
     src/game/Environment.cpp \
     src/game/ParticleSystem.cpp \
@@ -43,6 +44,7 @@ HEADERS += \
     src/graphics/Font5x7.h \
     src/game/Entity.h \
     src/game/Dino.h \
+    src/game/Terrain.h \
     src/game/Obstacle.h \
     src/game/Environment.h \
     src/game/ParticleSystem.h \

@@ -7,6 +7,7 @@
 #include "Dino.h"
 #include "Obstacle.h"
 #include "Environment.h"
+#include "Terrain.h"
 #include "ParticleSystem.h"
 #include "../audio/RetroAudio.h"
 
@@ -101,6 +102,7 @@ public:
     bool isNightMode() const { return m_env.isNightMode(); }
 
     const Dino& dino() const { return m_dino; }
+    const Terrain& terrain() const { return m_terrain; }
     const std::vector<Obstacle>& obstacles() const { return m_obstacles; }
     bool collisionDetected() const { return m_collisionDetected; }
     int hitX() const { return m_hitX; }
@@ -114,6 +116,7 @@ private:
     GameState m_state{GameState::StartWait};
     Dino m_dino;
     Environment m_env;
+    Terrain m_terrain;
     ParticleSystem m_particles;
     RetroAudio m_audio;
     Weather m_weather;

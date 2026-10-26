@@ -5,6 +5,9 @@
 #include "../graphics/SoftwareRasterizer.h"
 #include "ParticleSystem.h"
 
+class Terrain;
+struct FloatingPlatform;
+
 enum class DinoState {
     Idle,
     Running,
@@ -18,13 +21,14 @@ public:
     explicit Dino(int groundY = 220);
 
     void reset();
-    void update(float dt, ParticleSystem& particles);
+    void update(float dt, ParticleSystem& particles, Terrain* terrain = nullptr, float gameSpeed = 340.0f);
     void render(SoftwareRasterizer& rasterizer, bool nightMode, int score = 0);
 
     bool startJump(); // returns true if jump or double-jump occurred
     void endJump(); // For variable jump height
     void setDucking(bool ducking);
     void kill();
+    void boostUpward(float vy = -420.0f);
 
     // Power-up states
     bool hasShield() const { return m_hasShield; }
@@ -54,8 +58,14 @@ public:
     int y() const { return static_cast<int>(m_y); }
     float tiltAngle() const { return m_tiltAngle; }
 
+    void setGroundY(float gy) { m_groundY = static_cast<int>(gy); m_currentGroundY = gy; }
+    float currentGroundY() const { return m_currentGroundY; }
+    bool isOnPlatform() const { return m_isOnPlatform; }
+
 private:
     int m_groundY;
+    float m_currentGroundY{220.0f};
+    bool m_isOnPlatform{false};
     int m_x{50};
     float m_y{0.0f};
     float m_vy{0.0f};

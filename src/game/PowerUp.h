@@ -10,11 +10,13 @@ enum class PowerUpType {
     DoubleJump
 };
 
+class Terrain;
+
 class PowerUp {
 public:
     PowerUp(PowerUpType type, float x, int groundY);
 
-    void update(float dt, float speed);
+    void update(float dt, float speed, const Terrain* terrain = nullptr);
     void render(SoftwareRasterizer& rasterizer, bool nightMode);
 
     bool isOffScreen() const { return m_x < -40.0f; }

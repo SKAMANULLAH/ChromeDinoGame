@@ -1,4 +1,5 @@
 #include "Obstacle.h"
+#include "Terrain.h"
 #include "../graphics/SpriteData.h"
 
 Obstacle::Obstacle(ObstacleType type, float x, int groundY, int pteroFlyHeightLevel)
@@ -26,7 +27,7 @@ Obstacle::Obstacle(ObstacleType type, float x, int groundY, int pteroFlyHeightLe
     }
 }
 
-void Obstacle::update(float dt, float speed) {
+void Obstacle::update(float dt, float speed, const Terrain* terrain) {
     m_x -= speed * dt;
 
     if (m_type == ObstacleType::Pterodactyl) {
@@ -35,6 +36,10 @@ void Obstacle::update(float dt, float speed) {
             m_animTimer = 0.0f;
             m_animFrame = (m_animFrame + 1) % 2;
         }
+    } else if (terrain) {
+        // Cacti ride along the undulating terrain surface
+        float curGround = terrain->getGroundHeightAt(m_x + currentSprite().width() * 0.5f);
+        m_y = curGround - currentSprite().height();
     }
 }
 

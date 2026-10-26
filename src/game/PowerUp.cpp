@@ -1,4 +1,5 @@
 #include "PowerUp.h"
+#include "Terrain.h"
 #include "../graphics/SpriteData.h"
 #include <cmath>
 
@@ -10,9 +11,13 @@ PowerUp::PowerUp(PowerUpType type, float x, int groundY)
     m_y = m_baseY;
 }
 
-void PowerUp::update(float dt, float speed) {
+void PowerUp::update(float dt, float speed, const Terrain* terrain) {
     m_x -= speed * dt;
     m_bobTimer += dt * 4.0f;
+    if (terrain) {
+        float curGround = terrain->getGroundHeightAt(m_x + 7.0f);
+        m_baseY = curGround - 55.0f;
+    }
     // Gentle sine wave floating bob
     m_y = m_baseY + std::sin(m_bobTimer) * 6.0f;
 }

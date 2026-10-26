@@ -107,3 +107,16 @@ Your Dino includes kinematics features found in professional games like *Celeste
 * **Virtual Touch Controls:** On-screen Duck pad (bottom-left) and Jump pad (bottom-right) for touchscreen laptops or mobile devices.
 * **In-Game Settings Modal:** Click the `[SET]` button in the top-right to toggle weather, palettes, audio mute, CRT scanlines, anti-aliasing, and Turbo Mode without leaving the game.
 * **Local High Score Leaderboard:** Automatically tracks and saves your top 5 highest runs across sessions.
+
+---
+
+# 10. Infinite Procedural Diversified Terrain Engine (`Terrain.h`, `Terrain.cpp`)
+Inspired by mechanics from *Dino Run DX* and pure software rasterization:
+* **Fixed Horizontal Player Anchor:** The Dino remains anchored at a fixed screen X position ($X = 50$); only vertical kinematics (Y movement, jumping, falling, ducking, slope conforming) occur as the infinite procedural world scrolls towards the player.
+* **Rolling Sand Dunes:** Smooth parametric height curves ($C^1$ continuity). The Dino samples slope gradients beneath its feet and dynamically rotates its sprite pitch ($\theta = \arctan(\Delta y / \Delta x)$) to gallop over dunes.
+* **Desert Flats:** Seamless baseline runways with procedural Bresenham pebbles and rock texture.
+* **Floating Platforms:** Multi-tiered mesa slabs ($Y \in [145, 175]$) with one-way platform physics (jump through from beneath, land and run on top, fall off ledge with coyote time grace window).
+* **Spike Fields:** Deadly bone and mineral hazard clusters rendered via Scanline Polygon Fill and Bresenham outline edges.
+* **Boiling Lava Pools:** Sunken chasms filled with oscillating harmonic magma liquid, rising animated bubbles, and stepping-stone platforms spanning across the gorge.
+* **Cavern Tunnels (Caves):** Underground cave sections featuring rock ceiling arches, atmospheric cavern shading, and hanging stalactites (low-hanging stalactites require ducking/sliding underneath).
+* **Dynamic Biome HUD:** Live dashboard displays the active terrain type in real time (`TRN: SAND DUNES`, `TRN: MESA PLATFORMS`, `TRN: CAVERN TUNNEL`, `TRN: LAVA GORGE`, `TRN: SPIKE FIELD`, `TRN: DESERT FLATS`).

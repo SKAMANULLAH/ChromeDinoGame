@@ -27,6 +27,8 @@ set(SOURCES
     src/game/Entity.h
     src/game/Dino.h
     src/game/Dino.cpp
+    src/game/Terrain.h
+    src/game/Terrain.cpp
     src/game/Obstacle.h
     src/game/Obstacle.cpp
     src/game/Environment.h

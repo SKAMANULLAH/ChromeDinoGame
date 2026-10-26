@@ -13,11 +13,13 @@ enum class ObstacleType {
     Pterodactyl
 };
 
+class Terrain;
+
 class Obstacle {
 public:
     Obstacle(ObstacleType type, float x, int groundY, int pteroFlyHeightLevel = 0);
 
-    void update(float dt, float speed);
+    void update(float dt, float speed, const Terrain* terrain = nullptr);
     void render(SoftwareRasterizer& rasterizer, bool nightMode);
 
     bool isOffScreen() const { return m_x < -100.0f; }

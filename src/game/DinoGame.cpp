@@ -11,7 +11,8 @@
 
 DinoGame::DinoGame(int width, int height)
     : m_width(width), m_height(height),
-      m_dino(m_groundY), m_env(width, height, m_groundY)
+      m_dino(m_groundY), m_env(width, height, m_groundY),
+      m_terrain(width, height, static_cast<float>(m_groundY))
 {
     loadScores();
     reset();
@@ -78,7 +79,9 @@ void DinoGame::saveScores() {
 
 void DinoGame::reset() {
     m_state = GameState::StartWait;
+    m_terrain.reset();
     m_dino.reset();
+    m_dino.setGroundY(m_terrain.getGroundHeightAt(50.0f));
     m_env.reset();
     m_particles.clear();
     m_obstacles.clear();
@@ -309,15 +312,28 @@ void DinoGame::spawnObstacle() {
     std::uniform_int_distribution<int> rollDist(0, 100);
 
     float spawnX = static_cast<float>(m_width + 40);
+    std::uniform_real_distribution<float> jitter(0.0f, 0.8f);
+    float baseInterval = m_turboMode ? 1.0f : std::max(1.1f, 1.8f - (m_speed - 340.0f) * 0.0015f);
+
+    bool overHazard = m_terrain.isOverLava(spawnX) || (m_terrain.currentBiomeAt(spawnX) == TerrainType::Spikes);
+    if (overHazard) {
+        int heightLevel = (pteroHeightDist(rng) == 0) ? 1 : 2;
+        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX, m_groundY, heightLevel);
+        m_nextSpawnInterval = baseInterval + 0.8f;
+        m_spawnTimer = 0.0f;
+        return;
+    }
+
+    int localGroundY = static_cast<int>(m_terrain.getGroundHeightAt(spawnX));
 
     // Obstacle Combo (High score / Turbo mode challenge):
     // Spawns a small cactus followed closely by low pterodactyl (Jump -> Duck combo!)
     if ((m_score >= 450 || m_turboMode) && rollDist(rng) < 25) {
-        m_obstacles.emplace_back(ObstacleType::CactusSmall1, spawnX, m_groundY);
-        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX + 175.0f, m_groundY, 0); // Low fly height
+        m_obstacles.emplace_back(ObstacleType::CactusSmall1, spawnX, localGroundY);
+        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX + 175.0f, localGroundY, 0); // Low fly height
     } else if (m_score >= 350 && rollDist(rng) < 40) {
         int heightLevel = pteroHeightDist(rng);
-        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX, m_groundY, heightLevel);
+        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX, localGroundY, heightLevel);
     } else {
         int cType = cactusDist(rng);
         ObstacleType ot = ObstacleType::CactusSmall1;
@@ -327,11 +343,9 @@ void DinoGame::spawnObstacle() {
         else if (cType == 3) ot = ObstacleType::CactusBig1;
         else if (cType == 4) ot = ObstacleType::CactusBig2;
 
-        m_obstacles.emplace_back(ot, spawnX, m_groundY);
+        m_obstacles.emplace_back(ot, spawnX, localGroundY);
     }
 
-    std::uniform_real_distribution<float> jitter(0.0f, 0.8f);
-    float baseInterval = m_turboMode ? 1.0f : std::max(1.1f, 1.8f - (m_speed - 340.0f) * 0.0015f);
     m_nextSpawnInterval = baseInterval + jitter(rng);
     m_spawnTimer = 0.0f;
 }
@@ -395,6 +409,36 @@ void DinoGame::checkCollisions() {
             }
         }
     }
+
+    // Check Terrain Hazards (Spikes, Lava Pools, Low Cave Stalactites)
+    if (m_state == GameState::Playing) {
+        HazardType hazard = HazardType::None;
+        float hx = -1.0f, hy = -1.0f;
+        AABB dinoBox = m_dino.boundingBox();
+
+        if (m_terrain.checkHazardCollision(dinoBox, m_dino.isDucking(), hazard, hx, hy)) {
+            if (m_dino.hasShield()) {
+                m_dino.setShield(false);
+                m_audio.playShieldBreak();
+                m_shakeTimer = 0.20f;
+                m_particles.emitCollisionSparks(hx, hy, 28);
+                if (hazard == HazardType::Lava) {
+                    m_dino.boostUpward(-450.0f); // Shield burst launches Dino out of magma!
+                }
+            } else {
+                m_collisionDetected = true;
+                m_hitX = static_cast<int>(hx);
+                m_hitY = static_cast<int>(hy);
+                m_state = GameState::GameOver;
+                m_dino.kill();
+                m_audio.playGameOver();
+                uint32_t sparkCol = (hazard == HazardType::Lava) ? 0xFFFF6600 : 0xFFFF3333;
+                m_particles.emitCollisionSparks(hx, hy, 28, sparkCol);
+                m_shakeTimer = 0.25f;
+                saveScores();
+            }
+        }
+    }
 }
 
 void DinoGame::spawnPowerUp() {
@@ -452,7 +496,7 @@ void DinoGame::update(float dt) {
     m_promptTimer += dt;
 
     if (m_state == GameState::StartWait) {
-        m_dino.update(dt, m_particles);
+        m_dino.update(dt, m_particles, &m_terrain, 0.0f);
         return;
     }
 
@@ -516,8 +560,9 @@ void DinoGame::update(float dt) {
         }
     }
 
-    // Update Dino & Environment
-    m_dino.update(effectiveDt, m_particles);
+    // Update Terrain, Dino & Environment
+    m_terrain.update(effectiveDt, m_speed, m_score, m_particles);
+    m_dino.update(effectiveDt, m_particles, &m_terrain, m_speed);
     m_env.update(effectiveDt, m_speed, m_score);
 
     // Spawning Power-ups (every ~16 seconds)
@@ -529,7 +574,7 @@ void DinoGame::update(float dt) {
 
     // Update & Prune Power-ups
     for (size_t i = 0; i < m_powerups.size(); ) {
-        m_powerups[i].update(effectiveDt, m_speed);
+        m_powerups[i].update(effectiveDt, m_speed, &m_terrain);
         if (m_powerups[i].isOffScreen() || m_powerups[i].isCollected()) {
             m_powerups.erase(m_powerups.begin() + i);
         } else {
@@ -547,7 +592,7 @@ void DinoGame::update(float dt) {
     }
 
     for (size_t i = 0; i < m_obstacles.size(); ) {
-        m_obstacles[i].update(effectiveDt, m_speed);
+        m_obstacles[i].update(effectiveDt, m_speed, &m_terrain);
         if (m_obstacles[i].isOffScreen()) {
             m_obstacles.erase(m_obstacles.begin() + i);
         } else {
@@ -570,9 +615,11 @@ void DinoGame::render(SoftwareRasterizer& rasterizer) {
 
     // 1. Background parallax layers (Mountains, Clouds, Stars, Meteors)
     m_env.renderBackground(rasterizer);
+    // Cave cavern background wall if cave is present on screen
+    m_terrain.renderBackgroundCave(rasterizer, night);
 
-    // 2. Ground & terrain bumps
-    m_env.renderForeground(rasterizer);
+    // 2. Diversified Terrain Foreground (Dunes, Flats, Platforms, Spikes, Lava Pools, Caves)
+    m_terrain.renderForeground(rasterizer, night, m_paletteMode == PaletteMode::Cyberpunk);
 
     // 3. Particles
     m_particles.render(rasterizer);
@@ -698,9 +745,9 @@ void DinoGame::drawScore(SoftwareRasterizer& rasterizer) {
         rasterizer.drawTextBitmap(curTextX, scoreBoxY + 5, scoreBuf, textCol, 2);
     }
 
-    // 2. Top-Left Live Dashboard (Speedometer, Weather tag, Active Power-Ups)
+    // 2. Top-Left Live Dashboard (Speedometer, Terrain tag, Active Power-Ups)
     if (m_state == GameState::Playing) {
-        int dashW = 245;
+        int dashW = 270;
         int dashH = 26;
         int dashX = 8;
         int dashY = 8;
@@ -714,17 +761,13 @@ void DinoGame::drawScore(SoftwareRasterizer& rasterizer) {
 
         float spdRatio = m_speed / 340.0f;
         char spdBuf[32];
-        std::snprintf(spdBuf, sizeof(spdBuf), "SPD: %.1fx (%d)", spdRatio, static_cast<int>(m_speed));
+        std::snprintf(spdBuf, sizeof(spdBuf), "SPD: %.1fx", spdRatio);
         rasterizer.drawTextBitmap(dashX + 6, dashY + 4, spdBuf, 0xFF00FF88, 1);
 
-        const char* wShort = "CLEAR";
-        uint32_t wCol = 0xFF80D8FF;
-        if (m_weather.type() == WeatherType::Rain) { wShort = "RAIN"; wCol = 0xFF40C4FF; }
-        else if (m_weather.type() == WeatherType::Thunderstorm) { wShort = "STORM"; wCol = 0xFFFFD700; }
-        else if (m_weather.type() == WeatherType::Sandstorm) { wShort = "SAND"; wCol = 0xFFFFAB40; }
-        char wxBuf[32];
-        std::snprintf(wxBuf, sizeof(wxBuf), "WX: %s", wShort);
-        rasterizer.drawTextBitmap(dashX + 138, dashY + 4, wxBuf, wCol, 1);
+        const char* biomeStr = m_terrain.currentBiomeName(static_cast<float>(m_dino.x() + 16));
+        char bioBuf[32];
+        std::snprintf(bioBuf, sizeof(bioBuf), "TRN: %s", biomeStr);
+        rasterizer.drawTextBitmap(dashX + 88, dashY + 4, bioBuf, 0xFFFFDD33, 1);
 
         // Power-up mini status indicators on row 2
         int subTagX = dashX + 6;
