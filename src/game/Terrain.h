@@ -95,23 +95,52 @@ struct Stalactite {
     float y{0.0f};      // base at ceiling Y
     float width{14.0f};
     float height{28.0f}; // length hanging downwards
+    bool isHazard{false};
 
     AABB boundingBox() const {
+        if (!isHazard) {
+            return {0, 0, 0, 0};
+        }
+        int insetX = 2;
         return {
-            static_cast<int>(x),
-            static_cast<int>(y),
-            static_cast<int>(width),
-            static_cast<int>(height)
+            static_cast<int>(x) + insetX,
+            static_cast<int>(y + height - 42.0f),
+            std::max(4, static_cast<int>(width) - insetX * 2),
+            42
         };
     }
+};
+
+struct RoostingBat {
+    float x{0.0f};
+    float y{0.0f};
+    bool startled{false};
+    float flapTimer{0.0f};
+    float flyVx{0.0f};
+    float flyVy{0.0f};
+};
+
+struct CaveCrystal {
+    float x{0.0f};
+    float y{0.0f};
+    int width{7};
+    int height{12};
+    uint32_t color{0xFF00E5FF};
+    bool onCeiling{false};
 };
 
 struct CaveZone {
     float startX{0.0f};
     float endX{0.0f};
-    float ceilingY{145.0f};
-    float floorY{225.0f};
+    float ceilingY{220.0f};
+    float normalFloorY{225.0f};
+    float deepFloorY{380.0f};
+    float entranceSlopeLen{180.0f};
+    float exitSlopeLen{180.0f};
+    bool hasLava{false};
     std::vector<Stalactite> stalactites;
+    std::vector<RoostingBat> roostingBats;
+    std::vector<CaveCrystal> crystals;
 };
 
 struct TerrainSegment {
@@ -153,8 +182,8 @@ public:
     void update(float dt, float speed, int score, ParticleSystem& particles);
 
     // Rasterization
-    void renderBackgroundCave(SoftwareRasterizer& rasterizer, bool nightMode);
-    void renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, bool cyberpunk = false);
+    void renderBackgroundCave(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY = 0.0f);
+    void renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, bool cyberpunk = false, float cameraY = 0.0f);
 
     // Kinematic / Physics Surface Queries
     float getGroundHeightAt(float screenX) const;
@@ -164,6 +193,14 @@ public:
     float getCeilingHeightAt(float screenX) const;
     bool isInCave(float screenX) const;
     bool isOverLava(float screenX) const;
+
+    // Safety & Dodging Clearance Queries
+    bool isNearLava(float screenX, float margin = 260.0f) const;
+    bool isNearSpikes(float screenX, float margin = 260.0f) const;
+    bool isNearStalactite(float screenX, float margin = 280.0f) const;
+    bool isNearCavePortal(float screenX, float margin = 100.0f) const;
+    bool isNearHazard(float screenX, float margin = 260.0f) const;
+    bool hasSafeHeadroom(float startX, float endX, float minHeadroom = 125.0f) const;
 
     TerrainType currentBiomeAt(float screenX) const;
     const char* currentBiomeName(float screenX) const;

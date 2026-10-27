@@ -79,6 +79,7 @@ void DinoGame::saveScores() {
 
 void DinoGame::reset() {
     m_state = GameState::StartWait;
+    m_cameraY = 0.0f;
     m_terrain.reset();
     m_dino.reset();
     m_dino.setGroundY(m_terrain.getGroundHeightAt(50.0f));
@@ -305,6 +306,59 @@ bool DinoGame::handleTouchRelease(int x, int y) {
     return false;
 }
 
+bool DinoGame::canSafelySpawnObstacle(float spawnX, float jumpDist) const {
+    // 1. Minimum spacing from previous obstacle (prevent overlapping/tight jump landing traps)
+    if (!m_obstacles.empty()) {
+        float lastX = -10000.0f;
+        for (const auto& obs : m_obstacles) {
+            if (obs.x() > lastX) {
+                lastX = obs.x();
+            }
+        }
+        float minObsSpacing = (m_terrain.isInCave(spawnX) || m_terrain.currentBiomeAt(spawnX) == TerrainType::Cave)
+                                  ? std::max(220.0f, jumpDist + 20.0f)
+                                  : std::max(280.0f, jumpDist + 120.0f);
+        if (spawnX - lastX < minObsSpacing) {
+            return false;
+        }
+    }
+
+    // 2. Hazard spacing: clear runway before, through, and after Lava pools
+    float hazardMargin = std::max(260.0f, jumpDist + 60.0f);
+    if (m_terrain.isNearLava(spawnX, hazardMargin)) {
+        return false;
+    }
+
+    // 3. Hazard spacing: clear runway before, through, and after Spikes
+    if (m_terrain.isNearSpikes(spawnX, hazardMargin)) {
+        return false;
+    }
+
+    // 4. Cave-specific safety checks
+    bool inCave = m_terrain.isInCave(spawnX) || (m_terrain.currentBiomeAt(spawnX) == TerrainType::Cave);
+    if (inCave) {
+        // No obstacle near cave entrance or exit portals where ceiling arches slope down
+        if (m_terrain.isNearCavePortal(spawnX, 100.0f)) {
+            return false;
+        }
+
+        // No obstacle within jump or duck range of any stalactite
+        if (m_terrain.isNearStalactite(spawnX, std::max(280.0f, jumpDist + 60.0f))) {
+            return false;
+        }
+    }
+
+    // 5. Guaranteed headroom across the entire jump arc
+    // Jump arc extends from ~50px before spawnX to jumpDist after spawnX
+    float jumpArcStart = spawnX - 50.0f;
+    float jumpArcEnd = spawnX + jumpDist;
+    if (!m_terrain.hasSafeHeadroom(jumpArcStart, jumpArcEnd, 125.0f)) {
+        return false;
+    }
+
+    return true;
+}
+
 void DinoGame::spawnObstacle() {
     static std::mt19937 rng(12345);
     std::uniform_int_distribution<int> cactusDist(0, 4);
@@ -312,38 +366,61 @@ void DinoGame::spawnObstacle() {
     std::uniform_int_distribution<int> rollDist(0, 100);
 
     float spawnX = static_cast<float>(m_width + 40);
+    float jumpDist = std::max(280.0f, m_speed * 0.90f);
     std::uniform_real_distribution<float> jitter(0.0f, 0.8f);
     float baseInterval = m_turboMode ? 1.0f : std::max(1.1f, 1.8f - (m_speed - 340.0f) * 0.0015f);
 
-    bool overHazard = m_terrain.isOverLava(spawnX) || (m_terrain.currentBiomeAt(spawnX) == TerrainType::Spikes);
-    if (overHazard) {
-        int heightLevel = (pteroHeightDist(rng) == 0) ? 1 : 2;
-        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX, m_groundY, heightLevel);
-        m_nextSpawnInterval = baseInterval + 0.8f;
+    // If the spawn location is not safe for dodging, defer spawn slightly until safe ground scrolls in
+    if (!canSafelySpawnObstacle(spawnX, jumpDist)) {
+        m_nextSpawnInterval = 0.20f;
         m_spawnTimer = 0.0f;
         return;
     }
 
     int localGroundY = static_cast<int>(m_terrain.getGroundHeightAt(spawnX));
+    bool inCave = m_terrain.isInCave(spawnX) || (m_terrain.currentBiomeAt(spawnX) == TerrainType::Cave);
 
-    // Obstacle Combo (High score / Turbo mode challenge):
-    // Spawns a small cactus followed closely by low pterodactyl (Jump -> Duck combo!)
-    if ((m_score >= 450 || m_turboMode) && rollDist(rng) < 25) {
-        m_obstacles.emplace_back(ObstacleType::CactusSmall1, spawnX, localGroundY);
-        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX + 175.0f, localGroundY, 0); // Low fly height
-    } else if (m_score >= 350 && rollDist(rng) < 40) {
-        int heightLevel = pteroHeightDist(rng);
-        m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX, localGroundY, heightLevel);
+    if (inCave) {
+        // Inside caves: Bats fly inside!
+        // Height levels:
+        // 0 = low: Dino head height (standing hits, ducking clears)
+        // 1 = mid: jumpable or duckable
+        // 2 = high: overhead swooper
+        int roll = rollDist(rng);
+        int batHeightLevel = 0;
+        if (roll < 55) {
+            batHeightLevel = 0; // Low bat (duck required)
+        } else if (roll < 90) {
+            batHeightLevel = 1; // Mid bat (jump or duck)
+        } else {
+            batHeightLevel = 2; // High bat
+        }
+        m_obstacles.emplace_back(ObstacleType::Bat, spawnX, localGroundY, batHeightLevel);
     } else {
-        int cType = cactusDist(rng);
-        ObstacleType ot = ObstacleType::CactusSmall1;
-        if (cType == 0) ot = ObstacleType::CactusSmall1;
-        else if (cType == 1) ot = ObstacleType::CactusSmall2;
-        else if (cType == 2) ot = ObstacleType::CactusSmall3;
-        else if (cType == 3) ot = ObstacleType::CactusBig1;
-        else if (cType == 4) ot = ObstacleType::CactusBig2;
+        // Open terrain biomes (Flats, Dunes)
+        // Combos (Cactus followed by low Pterodactyl):
+        // Only spawn if score is high enough and the combo pterodactyl spawn point is ALSO safe
+        float comboPteroX = spawnX + jumpDist + 140.0f;
+        bool canCombo = ((m_score >= 450 || m_turboMode) && rollDist(rng) < 25 &&
+                         canSafelySpawnObstacle(comboPteroX, jumpDist));
 
-        m_obstacles.emplace_back(ot, spawnX, localGroundY);
+        if (canCombo) {
+            m_obstacles.emplace_back(ObstacleType::CactusSmall1, spawnX, localGroundY);
+            m_obstacles.emplace_back(ObstacleType::Pterodactyl, comboPteroX, localGroundY, 0); // Low fly height (duck)
+        } else if (m_score >= 350 && rollDist(rng) < 40) {
+            int heightLevel = pteroHeightDist(rng);
+            m_obstacles.emplace_back(ObstacleType::Pterodactyl, spawnX, localGroundY, heightLevel);
+        } else {
+            int cType = cactusDist(rng);
+            ObstacleType ot = ObstacleType::CactusSmall1;
+            if (cType == 0) ot = ObstacleType::CactusSmall1;
+            else if (cType == 1) ot = ObstacleType::CactusSmall2;
+            else if (cType == 2) ot = ObstacleType::CactusSmall3;
+            else if (cType == 3) ot = ObstacleType::CactusBig1;
+            else if (cType == 4) ot = ObstacleType::CactusBig2;
+
+            m_obstacles.emplace_back(ot, spawnX, localGroundY);
+        }
     }
 
     m_nextSpawnInterval = baseInterval + jitter(rng);
@@ -565,6 +642,15 @@ void DinoGame::update(float dt) {
     m_dino.update(effectiveDt, m_particles, &m_terrain, m_speed);
     m_env.update(effectiveDt, m_speed, m_score);
 
+    // Smooth camera Y tracking: follows ground level beneath Dino so Dino stays at baseline screen Y
+    float footX = m_dino.x() + 20.0f;
+    float currentGround = m_terrain.getGroundHeightAt(footX);
+    float targetCamY = std::max(0.0f, currentGround - m_terrain.defaultGroundY());
+    m_cameraY += (targetCamY - m_cameraY) * std::min(1.0f, 16.0f * effectiveDt);
+    if (std::abs(targetCamY - m_cameraY) < 0.2f) {
+        m_cameraY = targetCamY;
+    }
+
     // Spawning Power-ups (every ~16 seconds)
     m_powerupSpawnTimer += effectiveDt;
     if (m_powerupSpawnTimer >= 16.0f) {
@@ -614,28 +700,28 @@ void DinoGame::render(SoftwareRasterizer& rasterizer) {
     bool night = m_env.isNightMode() || m_turboMode;
 
     // 1. Background parallax layers (Mountains, Clouds, Stars, Meteors)
-    m_env.renderBackground(rasterizer);
+    m_env.renderBackground(rasterizer, m_cameraY);
     // Cave cavern background wall if cave is present on screen
-    m_terrain.renderBackgroundCave(rasterizer, night);
+    m_terrain.renderBackgroundCave(rasterizer, night, m_cameraY);
 
     // 2. Diversified Terrain Foreground (Dunes, Flats, Platforms, Spikes, Lava Pools, Caves)
-    m_terrain.renderForeground(rasterizer, night, m_paletteMode == PaletteMode::Cyberpunk);
+    m_terrain.renderForeground(rasterizer, night, m_paletteMode == PaletteMode::Cyberpunk, m_cameraY);
 
     // 3. Particles
-    m_particles.render(rasterizer);
+    m_particles.render(rasterizer, m_cameraY);
 
     // 4. Power-ups (Floating collectibles)
     for (auto& pu : m_powerups) {
-        pu.render(rasterizer, night);
+        pu.render(rasterizer, night, m_cameraY);
     }
 
     // 5. Obstacles
     for (auto& obs : m_obstacles) {
-        obs.render(rasterizer, night);
+        obs.render(rasterizer, night, m_cameraY);
     }
 
     // 6. Dino (Drop Shadow, 2D Affine Rotation, Bone Armor, Milestone Cosmetics)
-    m_dino.render(rasterizer, night, m_score);
+    m_dino.render(rasterizer, night, m_score, m_cameraY);
 
     // 7. Dynamic Weather (Rain drops, splash ripples, Thunderstorm flash, Sandstorm)
     m_weather.render(rasterizer);
@@ -643,7 +729,7 @@ void DinoGame::render(SoftwareRasterizer& rasterizer) {
     // 8. Lantern / Radial Vignette Shading (if active)
     if (m_radialVignetteActive) {
         int lx = m_dino.x() + 22;
-        int ly = m_dino.y() + 18;
+        int ly = m_dino.y() + 18 - static_cast<int>(m_cameraY);
         rasterizer.applyRadialVignette(lx, ly, 60, 260, 0.72f);
     }
 

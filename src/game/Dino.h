@@ -22,7 +22,7 @@ public:
 
     void reset();
     void update(float dt, ParticleSystem& particles, Terrain* terrain = nullptr, float gameSpeed = 340.0f);
-    void render(SoftwareRasterizer& rasterizer, bool nightMode, int score = 0);
+    void render(SoftwareRasterizer& rasterizer, bool nightMode, int score = 0, float cameraY = 0.0f);
 
     bool startJump(); // returns true if jump or double-jump occurred
     void endJump(); // For variable jump height

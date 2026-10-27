@@ -134,6 +134,7 @@ private:
     bool m_showLeaderboard{false};
     bool m_radialVignetteActive{false};
     bool m_useAntiAliasing{false};
+    float m_cameraY{0.0f};
     float m_bulletTimeTimer{0.0f};
     float m_powerupSpawnTimer{0.0f};
     std::vector<int> m_topScores;
@@ -169,6 +170,7 @@ private:
     float m_gameOverBlinkTimer{0.0f};
     float m_promptTimer{0.0f};
 
+    bool canSafelySpawnObstacle(float spawnX, float jumpDist) const;
     void spawnObstacle();
     void spawnPowerUp();
     void checkCollisions();

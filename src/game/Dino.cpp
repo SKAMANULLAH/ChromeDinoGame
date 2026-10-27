@@ -135,7 +135,9 @@ void Dino::update(float dt, ParticleSystem& particles, Terrain* terrain, float /
             float targetGroundY = terrain->getSurfaceHeightAt(footX, footY, m_vy, onPlat, plat);
 
             // Did the ground drop away (walked off ledge or floating platform edge)?
-            if (targetGroundY - footY > 14.0f) {
+            bool inCaveSlope = terrain && (terrain->currentBiomeAt(footX) == TerrainType::Cave);
+            float dropTolerance = inCaveSlope ? 35.0f : 14.0f;
+            if (targetGroundY - footY > dropTolerance) {
                 m_state = DinoState::Jumping;
                 m_vy = 0.0f;
                 m_coyoteTimer = 0.08f;
@@ -273,8 +275,8 @@ std::vector<AABB> Dino::subHitboxes() const {
     return boxes;
 }
 
-void Dino::render(SoftwareRasterizer& rasterizer, bool nightMode, int score) {
-    int renderY = static_cast<int>(m_y);
+void Dino::render(SoftwareRasterizer& rasterizer, bool nightMode, int score, float cameraY) {
+    int renderY = static_cast<int>(m_y - cameraY);
 
     // 1. Dynamic Drop Shadow (Midpoint Ellipse with distance scaling)
     if (m_state != DinoState::Dead) {
@@ -289,7 +291,7 @@ void Dino::render(SoftwareRasterizer& rasterizer, bool nightMode, int score) {
         uint32_t shadowCol = Framebuffer::packARGB(shadowAlpha, 30, 30, 35);
         int shadowCenterX = (m_state == DinoState::Ducking) ? (m_x + 28) : (m_x + 20);
 
-        rasterizer.fillEllipseMidpoint(shadowCenterX, static_cast<int>(m_currentGroundY) + 1, shadowRx, shadowRy, shadowCol);
+        rasterizer.fillEllipseMidpoint(shadowCenterX, static_cast<int>(m_currentGroundY - cameraY) + 1, shadowRx, shadowRy, shadowCol);
     }
 
     // 2. Base Dino Sprite Blit (with 2D Affine Rotation during jumps!)

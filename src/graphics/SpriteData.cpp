@@ -24,6 +24,10 @@ Sprite SpriteData::s_cactusBig2;
 Sprite SpriteData::s_pteroWingUp;
 Sprite SpriteData::s_pteroWingDown;
 
+Sprite SpriteData::s_batWingUp;
+Sprite SpriteData::s_batWingDown;
+Sprite SpriteData::s_batRoost;
+
 Sprite SpriteData::s_cloud;
 Sprite SpriteData::s_moonFull;
 Sprite SpriteData::s_moonCrescent;
@@ -566,6 +570,63 @@ void SpriteData::initialize() {
         "##########################################\n"
         "##########################################\n";
 
+    // Bat Wing Up (24x16)
+    const std::string BAT_UP_ASCII =
+        "..#..................#..\n"
+        ".###..#..........#..###.\n"
+        ".#####.#........#.#####.\n"
+        ".######.########.######.\n"
+        "..####################..\n"
+        "...#####..####..#####...\n"
+        "....###.##.##.##.###....\n"
+        ".....#..########..#.....\n"
+        "........########........\n"
+        "........########........\n"
+        ".........######.........\n"
+        ".........######.........\n"
+        "..........####..........\n"
+        "..........####..........\n"
+        "...........##...........\n"
+        "........................\n";
+
+    // Bat Wing Down (24x16)
+    const std::string BAT_DOWN_ASCII =
+        ".......#..........#.....\n"
+        "......###.######.###....\n"
+        "......##############....\n"
+        "..####################..\n"
+        ".######.##.##.##.######.\n"
+        ".#######..####..#######.\n"
+        ".######################.\n"
+        ".#####.###.##.###.#####.\n"
+        ".####...########...####.\n"
+        "..##.....######.....##..\n"
+        ".........######.........\n"
+        ".........######.........\n"
+        "..........####..........\n"
+        "..........####..........\n"
+        "...........##...........\n"
+        "........................\n";
+
+    // Bat Roosting / Hanging (12x16)
+    const std::string BAT_ROOST_ASCII =
+        ".....##.....\n"
+        ".....##.....\n"
+        "....####....\n"
+        "...######...\n"
+        "..########..\n"
+        "..########..\n"
+        ".##########.\n"
+        ".##########.\n"
+        ".##########.\n"
+        "..##.##.##..\n"
+        "...######...\n"
+        "...######...\n"
+        "....####....\n"
+        "....#..#....\n"
+        "...#....#...\n"
+        "............\n";
+
     // Cloud (46x14)
     const std::string CLOUD_ASCII =
         "..................#########...................\n"
@@ -746,6 +807,10 @@ void SpriteData::initialize() {
     s_pteroWingUp   = Sprite::fromAscii(42, 36, PTERO_UP_ASCII, '#', DINO_COLOR, TRANS);
     s_pteroWingDown = Sprite::fromAscii(42, 36, PTERO_DOWN_ASCII, '#', DINO_COLOR, TRANS);
 
+    s_batWingUp   = Sprite::fromAscii(24, 16, BAT_UP_ASCII, '#', DINO_COLOR, TRANS);
+    s_batWingDown = Sprite::fromAscii(24, 16, BAT_DOWN_ASCII, '#', DINO_COLOR, TRANS);
+    s_batRoost    = Sprite::fromAscii(12, 16, BAT_ROOST_ASCII, '#', DINO_COLOR, TRANS);
+
     const uint32_t CLOUD_COLOR = 0xFFC4C4C4;
     s_cloud = Sprite::fromAscii(46, 14, CLOUD_ASCII, '#', CLOUD_COLOR, TRANS);
 
@@ -780,6 +845,10 @@ const Sprite& SpriteData::cactusBig2()   { initialize(); return s_cactusBig2; }
 
 const Sprite& SpriteData::pteroWingUp()   { initialize(); return s_pteroWingUp; }
 const Sprite& SpriteData::pteroWingDown() { initialize(); return s_pteroWingDown; }
+
+const Sprite& SpriteData::batWingUp()   { initialize(); return s_batWingUp; }
+const Sprite& SpriteData::batWingDown() { initialize(); return s_batWingDown; }
+const Sprite& SpriteData::batRoost()    { initialize(); return s_batRoost; }
 
 const Sprite& SpriteData::cloud()       { initialize(); return s_cloud; }
 const Sprite& SpriteData::star()        { initialize(); return s_star; }

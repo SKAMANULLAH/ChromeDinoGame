@@ -39,6 +39,11 @@ public:
     static const Sprite& pteroWingUp();
     static const Sprite& pteroWingDown();
 
+    // Subterranean Bat
+    static const Sprite& batWingUp();
+    static const Sprite& batWingDown();
+    static const Sprite& batRoost();
+
     // Scenery & Environment
     static const Sprite& cloud();
     static const Sprite& moonFull();
@@ -70,6 +75,10 @@ private:
 
     static Sprite s_pteroWingUp;
     static Sprite s_pteroWingDown;
+
+    static Sprite s_batWingUp;
+    static Sprite s_batWingDown;
+    static Sprite s_batRoost;
 
     static Sprite s_cloud;
     static Sprite s_moonFull;

@@ -17,7 +17,7 @@ public:
     PowerUp(PowerUpType type, float x, int groundY);
 
     void update(float dt, float speed, const Terrain* terrain = nullptr);
-    void render(SoftwareRasterizer& rasterizer, bool nightMode);
+    void render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY = 0.0f);
 
     bool isOffScreen() const { return m_x < -40.0f; }
     bool isCollected() const { return m_collected; }

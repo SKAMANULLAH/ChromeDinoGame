@@ -1,4 +1,5 @@
 #include "Terrain.h"
+#include "../graphics/SpriteData.h"
 #include <cmath>
 #include <algorithm>
 
@@ -104,9 +105,9 @@ TerrainSegment Terrain::createSpikeSegment(float startX, float length, float gro
     seg.spikes.push_back(s1);
 
     // Cluster 2 (if segment long enough)
-    if (length >= 420.0f) {
+    if (length >= 440.0f) {
         SpikeHazard s2;
-        s2.x = startX + 290.0f;
+        s2.x = startX + 320.0f;
         s2.y = groundY;
         s2.width = 16.0f;
         s2.height = 22.0f;
@@ -160,33 +161,93 @@ TerrainSegment Terrain::createCaveSegment(float startX, float length, float grou
     CaveZone cave;
     cave.startX = startX;
     cave.endX = startX + length;
-    cave.ceilingY = 144.0f;
-    cave.floorY = groundY;
+    cave.normalFloorY = groundY;
+    cave.deepFloorY = groundY + 155.0f; // 380.0f: deep subterranean cavern floor below current ground!
+    cave.ceilingY = 220.0f; // Underground cavern roof
+    cave.entranceSlopeLen = 180.0f; // Smooth ramp descending into the earth
+    cave.exitSlopeLen = 180.0f;     // Smooth ramp ascending back up to desert
 
-    // Stalactite 1: High ceiling decoration (safe to run under)
-    Stalactite st1;
-    st1.x = startX + 160.0f;
-    st1.y = cave.ceilingY;
-    st1.width = 16.0f;
-    st1.height = 22.0f; // tip at 166 (clears 178 standing Dino)
-    cave.stalactites.push_back(st1);
+    // ~45% of deep subterranean caves contain bubbling magma pools
+    cave.hasLava = ((m_rng() % 100) < 45);
 
-    // Stalactite 2: Low danger hazard (MUST DUCK! Tip at 190, duck Dino height is 195)
-    Stalactite st2;
-    st2.x = startX + 320.0f;
-    st2.y = cave.ceilingY;
-    st2.width = 18.0f;
-    st2.height = 46.0f; // tip at 190
-    cave.stalactites.push_back(st2);
+    float interiorStart = startX + cave.entranceSlopeLen;
+    float interiorEnd = cave.endX - cave.exitSlopeLen;
+    float interiorLen = interiorEnd - interiorStart;
 
-    if (length >= 580.0f) {
-        // Stalactite 3: Medium stalactite
-        Stalactite st3;
-        st3.x = startX + 470.0f;
-        st3.y = cave.ceilingY;
-        st3.width = 16.0f;
-        st3.height = 28.0f;
-        cave.stalactites.push_back(st3);
+    if (cave.hasLava && interiorLen >= 280.0f) {
+        LavaPool pool;
+        pool.x = interiorStart + 60.0f + static_cast<float>(m_rng() % 35);
+        pool.width = 96.0f + static_cast<float>(m_rng() % 16); // 96-112px jumpable molten chasm
+        pool.surfaceY = cave.deepFloorY + 2.0f; // 382.0f
+        pool.depth = 80.0f;
+        pool.waveTimer = 0.0f;
+        pool.bubbleSpawnTimer = 0.0f;
+        seg.lavaPools.push_back(pool);
+
+        // Safe high decorative stalactite above the lava pool
+        Stalactite stHigh;
+        stHigh.x = pool.x + pool.width * 0.5f - 8.0f;
+        stHigh.y = cave.ceilingY;
+        stHigh.width = 16.0f;
+        stHigh.height = 42.0f; // tip at 262: safe overhead
+        stHigh.isHazard = false;
+        cave.stalactites.push_back(stHigh);
+
+        // If interior has plenty of room after the lava pool, place a hazard stalactite (duck)
+        if (interiorEnd - (pool.x + pool.width) >= 280.0f) {
+            Stalactite stDuck;
+            stDuck.x = pool.x + pool.width + 160.0f;
+            stDuck.y = cave.ceilingY;
+            stDuck.width = 18.0f;
+            stDuck.height = (cave.deepFloorY - 38.0f) - cave.ceilingY; // 342 - 220 = 122px (tip at 342 -> standing Dino hits, duck clears)
+            stDuck.isHazard = true;
+            cave.stalactites.push_back(stDuck);
+        }
+    } else {
+        // Cave without lava: low hazard stalactite requiring ducking
+        Stalactite st1;
+        st1.x = interiorStart + 110.0f;
+        st1.y = cave.ceilingY;
+        st1.width = 18.0f;
+        st1.height = (cave.deepFloorY - 38.0f) - cave.ceilingY; // tip at 342: duck required
+        st1.isHazard = true;
+        cave.stalactites.push_back(st1);
+
+        // High decorative stalactite
+        if (interiorLen >= 360.0f) {
+            Stalactite st2;
+            st2.x = interiorEnd - 120.0f;
+            st2.y = cave.ceilingY;
+            st2.width = 16.0f;
+            st2.height = 48.0f; // tip at 268: overhead safe
+            st2.isHazard = false;
+            cave.stalactites.push_back(st2);
+        }
+    }
+
+    // Roosting Bats hanging from the cave ceiling
+    int roostCount = 2 + (m_rng() % 3); // 2 to 4 bats
+    float batSpacing = interiorLen / static_cast<float>(roostCount + 1);
+    for (int i = 0; i < roostCount; ++i) {
+        RoostingBat bat;
+        bat.x = interiorStart + (i + 1) * batSpacing + static_cast<float>(m_rng() % 30) - 15.0f;
+        bat.y = cave.ceilingY;
+        cave.roostingBats.push_back(bat);
+    }
+
+    // Glowing subterranean mineral crystals
+    int crystalCount = 3 + (m_rng() % 4);
+    uint32_t crystalPalette[] = { 0xFF00E5FF, 0xFF00FF88, 0xFFBD00FF, 0xFFFF007F };
+    for (int i = 0; i < crystalCount; ++i) {
+        CaveCrystal cr;
+        float offsetSpan = std::max(10.0f, interiorLen - 20.0f);
+        cr.x = interiorStart + static_cast<float>(m_rng() % static_cast<int>(offsetSpan));
+        cr.onCeiling = ((m_rng() % 100) < 40);
+        cr.y = cr.onCeiling ? cave.ceilingY : cave.deepFloorY;
+        cr.width = 6 + (m_rng() % 4);
+        cr.height = 10 + (m_rng() % 6);
+        cr.color = crystalPalette[m_rng() % 4];
+        cave.crystals.push_back(cr);
     }
 
     seg.caves.push_back(cave);
@@ -258,7 +319,7 @@ void Terrain::generateNextSegment(int score) {
             break;
         }
         case TerrainType::Cave: {
-            float len = 580.0f + static_cast<float>(m_rng() % 160);
+            float len = 880.0f + static_cast<float>(m_rng() % 240);
             m_segments.push_back(createCaveSegment(startX, len, startY));
             break;
         }
@@ -283,6 +344,22 @@ void Terrain::update(float dt, float speed, int score, ParticleSystem& particles
             cave.endX -= dx;
             for (auto& stal : cave.stalactites) {
                 stal.x -= dx;
+            }
+            for (auto& bat : cave.roostingBats) {
+                bat.x -= dx;
+                if (!bat.startled && bat.x < 240.0f) {
+                    bat.startled = true;
+                    bat.flyVx = -speed * 0.45f - 40.0f;
+                    bat.flyVy = -22.0f - static_cast<float>(m_rng() % 20);
+                }
+                if (bat.startled) {
+                    bat.x += bat.flyVx * dt;
+                    bat.y += bat.flyVy * dt;
+                    bat.flapTimer += dt;
+                }
+            }
+            for (auto& cr : cave.crystals) {
+                cr.x -= dx;
             }
         }
         for (auto& pool : seg.lavaPools) {
@@ -359,6 +436,34 @@ float Terrain::getGroundHeightAt(float screenX) const {
                 return seg.startGroundY;
             }
 
+            if (seg.type == TerrainType::Cave) {
+                // Drop into subterranean lava chasm if over pool inside cave
+                for (const auto& pool : seg.lavaPools) {
+                    if (screenX >= pool.x && screenX <= pool.x + pool.width) {
+                        return pool.surfaceY + 35.0f;
+                    }
+                }
+                for (const auto& cave : seg.caves) {
+                    if (screenX >= cave.startX && screenX <= cave.endX) {
+                        // Smooth descent slope at entrance
+                        if (screenX < cave.startX + cave.entranceSlopeLen) {
+                            float u = (screenX - cave.startX) / cave.entranceSlopeLen;
+                            float t = 0.5f * (1.0f - std::cos(u * 3.14159265f));
+                            return cave.normalFloorY + (cave.deepFloorY - cave.normalFloorY) * t;
+                        }
+                        // Smooth ascent slope at exit
+                        if (screenX > cave.endX - cave.exitSlopeLen) {
+                            float u = (cave.endX - screenX) / cave.exitSlopeLen;
+                            float t = 0.5f * (1.0f - std::cos(u * 3.14159265f));
+                            return cave.normalFloorY + (cave.deepFloorY - cave.normalFloorY) * t;
+                        }
+                        // Deep subterranean cavern floor
+                        return cave.deepFloorY;
+                    }
+                }
+                return seg.startGroundY;
+            }
+
             return seg.startGroundY;
         }
     }
@@ -420,16 +525,19 @@ float Terrain::getCeilingHeightAt(float screenX) const {
     for (const auto& seg : m_segments) {
         for (const auto& cave : seg.caves) {
             if (screenX >= cave.startX && screenX <= cave.endX) {
-                float entranceArchLen = 80.0f;
-                // Arch down at entrance
+                float entranceArchLen = cave.entranceSlopeLen;
+                float portalMouthY = 80.0f;
+                // Arch down smoothly at entrance
                 if (screenX < cave.startX + entranceArchLen) {
                     float u = (screenX - cave.startX) / entranceArchLen;
-                    return cave.ceilingY * u;
+                    float t = 0.5f * (1.0f - std::cos(u * 3.14159265f));
+                    return portalMouthY + (cave.ceilingY - portalMouthY) * t;
                 }
-                // Arch up at exit
+                // Arch up smoothly at exit
                 if (screenX > cave.endX - entranceArchLen) {
                     float u = (cave.endX - screenX) / entranceArchLen;
-                    return cave.ceilingY * u;
+                    float t = 0.5f * (1.0f - std::cos(u * 3.14159265f));
+                    return portalMouthY + (cave.ceilingY - portalMouthY) * t;
                 }
                 // Main cavern body
                 return cave.ceilingY;
@@ -442,7 +550,8 @@ float Terrain::getCeilingHeightAt(float screenX) const {
 bool Terrain::isInCave(float screenX) const {
     for (const auto& seg : m_segments) {
         for (const auto& cave : seg.caves) {
-            if (screenX >= cave.startX + 80.0f && screenX <= cave.endX - 80.0f) {
+            if (screenX >= cave.startX + cave.entranceSlopeLen &&
+                screenX <= cave.endX - cave.exitSlopeLen) {
                 return true;
             }
         }
@@ -459,6 +568,103 @@ bool Terrain::isOverLava(float screenX) const {
         }
     }
     return false;
+}
+
+bool Terrain::isNearLava(float screenX, float margin) const {
+    for (const auto& seg : m_segments) {
+        for (const auto& pool : seg.lavaPools) {
+            if (screenX >= pool.x - margin && screenX <= pool.x + pool.width + margin) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool Terrain::isNearSpikes(float screenX, float margin) const {
+    for (const auto& seg : m_segments) {
+        for (const auto& spk : seg.spikes) {
+            float spkW = spk.width * static_cast<float>(spk.count);
+            if (screenX >= spk.x - margin && screenX <= spk.x + spkW + margin) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool Terrain::isNearStalactite(float screenX, float margin) const {
+    for (const auto& seg : m_segments) {
+        for (const auto& cave : seg.caves) {
+            for (const auto& stal : cave.stalactites) {
+                if (!stal.isHazard) continue; // Only duck-hazard stalactites require clearance
+                // If stalactite is behind screenX: player needs runway to stand/recover from ducking
+                if (stal.x <= screenX && (screenX - (stal.x + stal.width)) < 220.0f) {
+                    return true;
+                }
+                // If stalactite is ahead of screenX: player jumping would jump into or land near stalactite
+                if (stal.x > screenX && (stal.x - screenX) < margin) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool Terrain::isNearCavePortal(float screenX, float margin) const {
+    for (const auto& seg : m_segments) {
+        for (const auto& cave : seg.caves) {
+            if ((screenX >= cave.startX - margin && screenX <= cave.startX + cave.entranceSlopeLen + margin) ||
+                (screenX >= cave.endX - cave.exitSlopeLen - margin && screenX <= cave.endX + margin)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool Terrain::isNearHazard(float screenX, float margin) const {
+    return isNearLava(screenX, margin) || isNearSpikes(screenX, margin) || isNearStalactite(screenX, margin);
+}
+
+bool Terrain::hasSafeHeadroom(float startX, float endX, float minHeadroom) const {
+    for (float x = startX; x <= endX; x += 15.0f) {
+        float gY = getGroundHeightAt(x);
+
+        // 1. Cave ceiling check
+        float cY = getCeilingHeightAt(x);
+        if (cY > 0.0f) {
+            if ((gY - cY) < minHeadroom) {
+                return false;
+            }
+        }
+
+        // 2. Stalactites check
+        for (const auto& seg : m_segments) {
+            for (const auto& cave : seg.caves) {
+                for (const auto& stal : cave.stalactites) {
+                    if (!stal.isHazard) continue;
+                    if (x >= stal.x - 10.0f && x <= stal.x + stal.width + 10.0f) {
+                        float tipY = stal.y + stal.height;
+                        if ((gY - tipY) < minHeadroom) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            // 3. Floating platforms above ground check
+            for (const auto& plat : seg.platforms) {
+                if (x >= plat.x - 10.0f && x <= plat.x + plat.width + 10.0f) {
+                    float platBot = plat.y + plat.height;
+                    if (platBot < gY && (gY - platBot) < minHeadroom) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    return true;
 }
 
 TerrainType Terrain::currentBiomeAt(float screenX) const {
@@ -478,7 +684,17 @@ const char* Terrain::currentBiomeName(float screenX) const {
         case TerrainType::FloatingPlatforms: return "MESA PLATFORMS";
         case TerrainType::Spikes: return "SPIKE FIELD";
         case TerrainType::LavaPool: return "LAVA GORGE";
-        case TerrainType::Cave: return "CAVERN TUNNEL";
+        case TerrainType::Cave: {
+            for (const auto& seg : m_segments) {
+                if (screenX >= seg.startX && screenX <= seg.endX) {
+                    for (const auto& cave : seg.caves) {
+                        if (cave.hasLava) return "VOLCANIC CAVERN";
+                        return "DEEP BAT GROTTO";
+                    }
+                }
+            }
+            return "DEEP CAVERN";
+        }
     }
     return "DESERT";
 }
@@ -533,7 +749,7 @@ bool Terrain::checkHazardCollision(const AABB& dinoBox, bool /*isDucking*/, Haza
     return false;
 }
 
-void Terrain::renderBackgroundCave(SoftwareRasterizer& rasterizer, bool nightMode) {
+void Terrain::renderBackgroundCave(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY) {
     // Render cavern back wall inside cave sections
     for (const auto& seg : m_segments) {
         for (const auto& cave : seg.caves) {
@@ -541,20 +757,71 @@ void Terrain::renderBackgroundCave(SoftwareRasterizer& rasterizer, bool nightMod
             int cx1 = std::min(m_width, static_cast<int>(cave.endX));
             if (cx0 >= cx1) continue;
 
-            uint32_t caveBgCol = nightMode ? 0xFF101118 : 0xFF282732;
-            uint32_t strataCol = nightMode ? 0xFF191B24 : 0xFF353442;
+            uint32_t caveBgCol = nightMode ? 0xFF0D0E14 : 0xFF22212B;
+            uint32_t strataCol = nightMode ? 0xFF161822 : 0xFF2F2E3A;
+            uint32_t magmaGlowCol = 0xFF350F08;
 
-            rasterizer.fillRectScanline(cx0, 0, cx1 - cx0, m_height, caveBgCol);
+            for (int x = cx0; x < cx1; ++x) {
+                float fx = static_cast<float>(x);
+                int cy = static_cast<int>(std::round(getCeilingHeightAt(fx) - cameraY));
+                int gy = static_cast<int>(std::round(getGroundHeightAt(fx) - cameraY));
 
-            // Cavern rock strata lines
-            rasterizer.drawDottedLineBresenham(cx0, 60, cx1, 60, strataCol, 8);
-            rasterizer.drawDottedLineBresenham(cx0, 110, cx1, 110, strataCol, 12);
-            rasterizer.drawDottedLineBresenham(cx0, 175, cx1, 175, strataCol, 6);
+                int topY = std::max(0, cy);
+                int botY = std::min(m_height, gy);
+
+                for (int y = topY; y < botY; ++y) {
+                    uint32_t col = caveBgCol;
+                    // If cave has lava, add a warm ambient glow rising from the bottom
+                    if (cave.hasLava && y > botY - 70) {
+                        if ((x + y) % 3 == 0) {
+                            col = magmaGlowCol;
+                        }
+                    }
+                    rasterizer.setPixel(x, y, col);
+                }
+
+                // Cavern rock strata lines
+                int s1 = static_cast<int>(std::round(260.0f - cameraY));
+                int s2 = static_cast<int>(std::round(315.0f - cameraY));
+                int s3 = static_cast<int>(std::round(365.0f - cameraY));
+                if (topY <= s1 && botY >= s1 && s1 >= 0 && s1 < m_height && x % 4 != 0) {
+                    rasterizer.setPixel(x, s1, strataCol);
+                }
+                if (topY <= s2 && botY >= s2 && s2 >= 0 && s2 < m_height && x % 6 != 0) {
+                    rasterizer.setPixel(x, s2, strataCol);
+                }
+                if (topY <= s3 && botY >= s3 && s3 >= 0 && s3 < m_height && x % 5 != 0) {
+                    rasterizer.setPixel(x, s3, strataCol);
+                }
+            }
+
+            // Render roosting bats hanging from the ceiling
+            for (const auto& bat : cave.roostingBats) {
+                if (bat.x < -30.0f || bat.x >= static_cast<float>(m_width) + 20.0f) continue;
+                int bx = static_cast<int>(bat.x);
+                int by = static_cast<int>(bat.y - cameraY);
+
+                if (bat.startled) {
+                    const Sprite& sp = ((static_cast<int>(bat.flapTimer * 12.0f) % 2) == 0)
+                                           ? SpriteData::batWingUp()
+                                           : SpriteData::batWingDown();
+                    Sprite inv = nightMode ? sp.invertedColors() : sp;
+                    rasterizer.blitSprite(inv, bx, by);
+                } else {
+                    const Sprite& roostSp = SpriteData::batRoost();
+                    Sprite inv = nightMode ? roostSp.invertedColors() : roostSp;
+                    rasterizer.blitSprite(inv, bx, by);
+                    // Glowing ruby red bat eyes
+                    uint32_t eyeCol = 0xFFFF1744;
+                    rasterizer.setPixel(bx + 4, by + 9, eyeCol);
+                    rasterizer.setPixel(bx + 7, by + 9, eyeCol);
+                }
+            }
         }
     }
 }
 
-void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, bool cyberpunk) {
+void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, bool cyberpunk, float cameraY) {
     uint32_t lineCol = nightMode ? 0xFFACACAC : 0xFF535353;
     uint32_t groundBodyCol = nightMode ? 0xFF15161C : 0xFFEFEFEF;
     uint32_t platCol = nightMode ? 0xFF2C2E3B : 0xFF656570;
@@ -573,7 +840,7 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
         spikeLineCol = 0xFF00FFFF;  // Neon Cyan Edge
     }
 
-    // 1. Render Ground & Dunes (Pure Software Rasterization)
+    // 1. Render Ground & Dunes (using cameraY offset)
     for (int x = 0; x < m_width; ++x) {
         float fx = static_cast<float>(x);
 
@@ -591,24 +858,40 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
 
         if (inLava) continue;
 
-        int gy = static_cast<int>(std::round(getGroundHeightAt(fx)));
-        gy = std::clamp(gy, 50, m_height - 1);
+        int gy = static_cast<int>(std::round(getGroundHeightAt(fx) - cameraY));
+        if (gy >= m_height) continue;
+
+        int drawGy = std::max(0, gy);
+
+        // Subterranean dark stone when inside cave
+        uint32_t curLineCol = lineCol;
+        uint32_t curBodyCol = groundBodyCol;
+        if (getCeilingHeightAt(fx) > 0.0f) {
+            curLineCol = nightMode ? 0xFF8A8E9E : 0xFF4A4958;
+            curBodyCol = nightMode ? 0xFF0E0F15 : 0xFF1E1D26;
+            if (cyberpunk) {
+                curLineCol = 0xFFBD00FF;
+                curBodyCol = 0xFF140722;
+            }
+        }
 
         // Ground surface contour pixel
-        rasterizer.setPixel(x, gy, lineCol);
+        if (gy >= 0 && gy < m_height) {
+            rasterizer.setPixel(x, gy, curLineCol);
+        }
 
         // Solid ground body fill below surface
-        for (int y = gy + 1; y < m_height; ++y) {
-            rasterizer.setPixel(x, y, groundBodyCol);
+        for (int y = drawGy + 1; y < m_height; ++y) {
+            rasterizer.setPixel(x, y, curBodyCol);
         }
 
         // Procedural rock/sediment specks
-        if ((x * 37 + gy * 19) % 47 == 0 && gy + 5 < m_height) {
-            rasterizer.setPixel(x, gy + 4, lineCol);
+        if ((x * 37 + drawGy * 19) % 47 == 0 && drawGy + 5 < m_height) {
+            rasterizer.setPixel(x, drawGy + 4, curLineCol);
         }
-        if ((x * 13 + gy * 7) % 61 == 0 && gy + 9 < m_height) {
-            rasterizer.setPixel(x, gy + 8, lineCol);
-            rasterizer.setPixel(x + 1, gy + 8, lineCol);
+        if ((x * 13 + drawGy * 7) % 61 == 0 && drawGy + 9 < m_height) {
+            rasterizer.setPixel(x, drawGy + 8, curLineCol);
+            rasterizer.setPixel(x + 1, drawGy + 8, curLineCol);
         }
     }
 
@@ -619,37 +902,47 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
 
             int px = static_cast<int>(pool.x);
             int pw = static_cast<int>(pool.width);
-            int sy = static_cast<int>(pool.surfaceY);
+            int sy = static_cast<int>(pool.surfaceY - cameraY);
             int pyBottom = std::min(m_height - 1, sy + static_cast<int>(pool.depth));
 
             // Deep magma red basin
             uint32_t magmaCol = cyberpunk ? 0xFF800030 : 0xFFB31200;
-            rasterizer.fillRectScanline(px, sy + 3, pw, pyBottom - (sy + 3), magmaCol);
+            if (sy + 3 < pyBottom) {
+                rasterizer.fillRectScanline(px, sy + 3, pw, pyBottom - (sy + 3), magmaCol);
+            }
 
             // Sub-surface orange band
             uint32_t orangeCol = cyberpunk ? 0xFFFF0066 : 0xFFFF4500;
-            rasterizer.fillRectScanline(px, sy + 1, pw, 3, orangeCol);
+            if (sy + 1 >= 0 && sy + 1 < m_height) {
+                rasterizer.fillRectScanline(px, sy + 1, pw, 3, orangeCol);
+            }
 
             // Animated undulating molten surface line
             uint32_t goldCol = cyberpunk ? 0xFF00FFFF : 0xFFFFEE44;
             for (int x = px; x < px + pw; ++x) {
                 if (x < 0 || x >= m_width) continue;
                 float fx = static_cast<float>(x);
-                float wy = pool.surfaceY + 2.2f * std::sin(pool.waveTimer * 5.0f + fx * 0.09f)
-                                         + 1.2f * std::cos(pool.waveTimer * 3.2f + fx * 0.15f);
+                float wy = pool.surfaceY - cameraY + 2.2f * std::sin(pool.waveTimer * 5.0f + fx * 0.09f)
+                                                    + 1.2f * std::cos(pool.waveTimer * 3.2f + fx * 0.15f);
                 int iwy = static_cast<int>(wy);
-                rasterizer.setPixel(x, iwy, goldCol);
-                rasterizer.setPixel(x, iwy + 1, orangeCol);
+                if (iwy >= 0 && iwy < m_height) {
+                    rasterizer.setPixel(x, iwy, goldCol);
+                }
+                if (iwy + 1 >= 0 && iwy + 1 < m_height) {
+                    rasterizer.setPixel(x, iwy + 1, orangeCol);
+                }
             }
 
             // Rocky bank borders (left and right edges of chasm)
-            rasterizer.drawLineBresenham(px, static_cast<int>(m_defaultGroundY), px, pyBottom, lineCol);
-            rasterizer.drawLineBresenham(px + pw, static_cast<int>(m_defaultGroundY), px + pw, pyBottom, lineCol);
+            int bankYLeft = static_cast<int>(std::round(getGroundHeightAt(pool.x - 1.0f) - cameraY));
+            int bankYRight = static_cast<int>(std::round(getGroundHeightAt(pool.x + pool.width + 1.0f) - cameraY));
+            rasterizer.drawLineBresenham(px, bankYLeft, px, pyBottom, lineCol);
+            rasterizer.drawLineBresenham(px + pw, bankYRight, px + pw, pyBottom, lineCol);
 
             // Rising animated bubbles
             for (const auto& b : pool.bubbles) {
                 int bx = static_cast<int>(b.x);
-                int by = static_cast<int>(b.y);
+                int by = static_cast<int>(b.y - cameraY);
                 int br = static_cast<int>(b.r);
                 if (bx >= 0 && bx < m_width && by >= sy && by < m_height) {
                     rasterizer.fillCircleMidpoint(bx, by, br, goldCol);
@@ -665,7 +958,7 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
             if (plat.x + plat.width < 0.0f || plat.x >= static_cast<float>(m_width)) continue;
 
             int px = static_cast<int>(plat.x);
-            int py = static_cast<int>(plat.y);
+            int py = static_cast<int>(plat.y - cameraY);
             int pw = static_cast<int>(plat.width);
             int ph = static_cast<int>(plat.height);
 
@@ -707,7 +1000,7 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
 
             for (int i = 0; i < spk.count; ++i) {
                 int sx = static_cast<int>(spk.x + i * spk.width);
-                int sy = static_cast<int>(spk.y);
+                int sy = static_cast<int>(spk.y - cameraY);
                 int sw = static_cast<int>(spk.width);
                 int sh = static_cast<int>(spk.height);
 
@@ -749,12 +1042,16 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
 
             // Ceiling rock slab fill down to cave ceiling line
             for (int x = cx0; x <= cx1; ++x) {
-                int cy = static_cast<int>(std::round(getCeilingHeightAt(static_cast<float>(x))));
-                if (cy > 0) {
-                    for (int y = 0; y < cy; ++y) {
+                float ceilWorldY = getCeilingHeightAt(static_cast<float>(x));
+                if (ceilWorldY > 0.0f) {
+                    int cy = static_cast<int>(std::round(ceilWorldY - cameraY));
+                    int fillCy = std::clamp(cy, 0, m_height);
+                    for (int y = 0; y < fillCy; ++y) {
                         rasterizer.setPixel(x, y, caveRockCol);
                     }
-                    rasterizer.setPixel(x, cy, caveLipCol);
+                    if (cy >= 0 && cy < m_height) {
+                        rasterizer.setPixel(x, cy, caveLipCol);
+                    }
                 }
             }
 
@@ -763,7 +1060,7 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
                 if (stal.x + stal.width < 0.0f || stal.x >= static_cast<float>(m_width)) continue;
 
                 int sx = static_cast<int>(stal.x);
-                int sy = static_cast<int>(stal.y);
+                int sy = static_cast<int>(stal.y - cameraY);
                 int sw = static_cast<int>(stal.width);
                 int sh = static_cast<int>(stal.height);
 
@@ -776,7 +1073,38 @@ void Terrain::renderForeground(SoftwareRasterizer& rasterizer, bool nightMode, b
                 rasterizer.drawLineBresenham(p2.x(), p2.y(), p3.x(), p3.y(), caveLipCol);
 
                 // Water drop glint at stalactite tip
-                rasterizer.setPixel(p2.x(), p2.y(), 0xFF80D8FF);
+                int tipY = sy + sh;
+                if (tipY >= 0 && tipY < m_height) {
+                    rasterizer.setPixel(p2.x(), tipY, 0xFF80D8FF);
+                    if (stal.isHazard) {
+                        rasterizer.setPixel(p2.x(), tipY - 1, 0xFFFFFFFF);
+                    }
+                }
+            }
+
+            // Glowing subterranean mineral crystals
+            for (const auto& cr : cave.crystals) {
+                if (cr.x + cr.width < 0.0f || cr.x >= static_cast<float>(m_width)) continue;
+                int cx = static_cast<int>(cr.x);
+                int cy = static_cast<int>(cr.y - cameraY);
+                int cw = cr.width;
+                int ch = cr.height;
+
+                uint32_t crCol = cyberpunk ? 0xFF00FFFF : cr.color;
+                QPoint p1, p2, p3;
+                if (cr.onCeiling) {
+                    p1 = QPoint(cx, cy);
+                    p2 = QPoint(cx + cw / 2, cy + ch);
+                    p3 = QPoint(cx + cw, cy);
+                } else {
+                    p1 = QPoint(cx, cy);
+                    p2 = QPoint(cx + cw / 2, cy - ch);
+                    p3 = QPoint(cx + cw, cy);
+                }
+
+                rasterizer.fillPolygonScanline({p1, p2, p3}, crCol);
+                rasterizer.drawLineBresenham(p1.x(), p1.y(), p2.x(), p2.y(), 0xFFFFFFFF);
+                rasterizer.drawLineBresenham(p2.x(), p2.y(), p3.x(), p3.y(), crCol);
             }
         }
     }

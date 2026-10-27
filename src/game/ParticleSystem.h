@@ -32,7 +32,7 @@ public:
     ParticleSystem() = default;
 
     void update(float dt);
-    void render(SoftwareRasterizer& rasterizer);
+    void render(SoftwareRasterizer& rasterizer, float cameraY = 0.0f);
     void clear();
 
     // Spawners

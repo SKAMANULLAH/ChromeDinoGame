@@ -37,7 +37,7 @@ public:
 
     void reset();
     void update(float dt, float gameSpeed, int currentScore);
-    void renderBackground(SoftwareRasterizer& rasterizer);
+    void renderBackground(SoftwareRasterizer& rasterizer, float cameraY = 0.0f);
     void renderForeground(SoftwareRasterizer& rasterizer);
 
     bool isNightMode() const { return m_isNight; }

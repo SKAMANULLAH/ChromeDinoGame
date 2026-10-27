@@ -137,17 +137,20 @@ void Environment::update(float dt, float gameSpeed, int currentScore) {
     }
 }
 
-void Environment::renderBackground(SoftwareRasterizer& rasterizer) {
+void Environment::renderBackground(SoftwareRasterizer& rasterizer, float cameraY) {
+    int mountGroundY = m_groundY - static_cast<int>(cameraY * 0.45f);
+    int skyShiftY = static_cast<int>(cameraY * 0.25f);
+
     // 1. Far Mountain Silhouette (Parallax Layer 1 - Scanline Polygon Fill)
     uint32_t farMountainCol = m_isNight ? 0xFF191A20 : 0xFFE8E8E8;
     int farOffset = static_cast<int>(m_mountainScrollFar) % 240;
     for (int bx = -farOffset - 240; bx < m_width + 240; bx += 240) {
         std::vector<QPoint> farPoly = {
-            QPoint(bx, m_groundY),
-            QPoint(bx + 70, m_groundY - 55),
-            QPoint(bx + 130, m_groundY - 70),
-            QPoint(bx + 180, m_groundY - 45),
-            QPoint(bx + 240, m_groundY)
+            QPoint(bx, mountGroundY),
+            QPoint(bx + 70, mountGroundY - 55),
+            QPoint(bx + 130, mountGroundY - 70),
+            QPoint(bx + 180, mountGroundY - 45),
+            QPoint(bx + 240, mountGroundY)
         };
         rasterizer.fillPolygonScanline(farPoly, farMountainCol);
     }
@@ -157,10 +160,10 @@ void Environment::renderBackground(SoftwareRasterizer& rasterizer) {
     int midOffset = static_cast<int>(m_mountainScrollMid) % 180;
     for (int bx = -midOffset - 180; bx < m_width + 180; bx += 180) {
         std::vector<QPoint> midPoly = {
-            QPoint(bx, m_groundY),
-            QPoint(bx + 50, m_groundY - 32),
-            QPoint(bx + 110, m_groundY - 38),
-            QPoint(bx + 180, m_groundY)
+            QPoint(bx, mountGroundY),
+            QPoint(bx + 50, mountGroundY - 32),
+            QPoint(bx + 110, mountGroundY - 38),
+            QPoint(bx + 180, mountGroundY)
         };
         rasterizer.fillPolygonScanline(midPoly, midDuneCol);
     }
@@ -173,14 +176,17 @@ void Environment::renderBackground(SoftwareRasterizer& rasterizer) {
             uint8_t starAlpha = static_cast<uint8_t>(255 * m_nightTransition * brightness);
             if (starAlpha > 20) {
                 uint32_t starCol = Framebuffer::packARGB(starAlpha, 230, 230, 240);
-                if (st.size == 1) {
-                    rasterizer.setPixel(st.x, st.y, starCol);
-                } else {
-                    rasterizer.fillCircleMidpoint(st.x, st.y, 1, starCol);
-                    // Star sparkle cross using Bresenham lines
-                    if (brightness > 0.85f) {
-                        rasterizer.drawLineBresenham(st.x - 2, st.y, st.x + 2, st.y, starCol);
-                        rasterizer.drawLineBresenham(st.x, st.y - 2, st.x, st.y + 2, starCol);
+                int sy = st.y - skyShiftY;
+                if (sy >= 0 && sy < m_height) {
+                    if (st.size == 1) {
+                        rasterizer.setPixel(st.x, sy, starCol);
+                    } else {
+                        rasterizer.fillCircleMidpoint(st.x, sy, 1, starCol);
+                        // Star sparkle cross using Bresenham lines
+                        if (brightness > 0.85f) {
+                            rasterizer.drawLineBresenham(st.x - 2, sy, st.x + 2, sy, starCol);
+                            rasterizer.drawLineBresenham(st.x, sy - 2, st.x, sy + 2, starCol);
+                        }
                     }
                 }
             }
@@ -192,7 +198,7 @@ void Environment::renderBackground(SoftwareRasterizer& rasterizer) {
             uint8_t ma = static_cast<uint8_t>(255 * alphaF);
             uint32_t headCol = Framebuffer::packARGB(ma, 255, 255, 255);
             int headX = static_cast<int>(m.x);
-            int headY = static_cast<int>(m.y);
+            int headY = static_cast<int>(m.y) - skyShiftY;
             int tailX = headX - static_cast<int>(m.vx * 0.05f);
             int tailY = headY - static_cast<int>(m.vy * 0.05f);
             rasterizer.drawLineBresenham(headX, headY, tailX, tailY, headCol);
@@ -201,7 +207,7 @@ void Environment::renderBackground(SoftwareRasterizer& rasterizer) {
 
         // Moon rendering using Midpoint Circle Algorithm & Constructive Solid Geometry (CSG)
         int moonX = static_cast<int>(m_moonX);
-        int moonY = static_cast<int>(m_moonY);
+        int moonY = static_cast<int>(m_moonY) - skyShiftY;
         int moonR = 14;
 
         uint8_t moonA = static_cast<uint8_t>(255 * m_nightTransition);
@@ -217,7 +223,7 @@ void Environment::renderBackground(SoftwareRasterizer& rasterizer) {
     uint32_t cloudTint = m_isNight ? 0xFF505055 : 0xFFC4C4C4;
     for (const auto& cloud : m_clouds) {
         int cx = static_cast<int>(cloud.x);
-        int cy = static_cast<int>(cloud.y);
+        int cy = static_cast<int>(cloud.y) - skyShiftY;
         // Render cloud as combination of Midpoint Ellipses and Circles (pure raster!)
         rasterizer.fillEllipseMidpoint(cx + 20, cy + 8, 18, 6, cloudTint);
         rasterizer.fillCircleMidpoint(cx + 14, cy + 5, 6, cloudTint);

@@ -24,7 +24,7 @@ void ParticleSystem::update(float dt) {
     }
 }
 
-void ParticleSystem::render(SoftwareRasterizer& rasterizer) {
+void ParticleSystem::render(SoftwareRasterizer& rasterizer, float cameraY) {
     for (const auto& p : m_particles) {
         float alphaFactor = std::clamp(p.life / p.maxLife, 0.0f, 1.0f);
         uint8_t a, r, g, b;
@@ -33,7 +33,7 @@ void ParticleSystem::render(SoftwareRasterizer& rasterizer) {
         uint32_t fadedColor = Framebuffer::packARGB(finalA, r, g, b);
 
         int px = static_cast<int>(p.x);
-        int py = static_cast<int>(p.y);
+        int py = static_cast<int>(p.y - cameraY);
 
         if (p.type == ParticleType::Dust) {
             // Drawn using Midpoint Circle algorithm

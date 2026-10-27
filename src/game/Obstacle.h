@@ -10,7 +10,8 @@ enum class ObstacleType {
     CactusSmall3,
     CactusBig1,
     CactusBig2,
-    Pterodactyl
+    Pterodactyl,
+    Bat
 };
 
 class Terrain;
@@ -20,7 +21,7 @@ public:
     Obstacle(ObstacleType type, float x, int groundY, int pteroFlyHeightLevel = 0);
 
     void update(float dt, float speed, const Terrain* terrain = nullptr);
-    void render(SoftwareRasterizer& rasterizer, bool nightMode);
+    void render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY = 0.0f);
 
     bool isOffScreen() const { return m_x < -100.0f; }
     AABB boundingBox() const;
@@ -35,9 +36,11 @@ private:
     float m_y{0.0f};
     int m_groundY;
     
-    // Pterodactyl animation
+    // Pterodactyl & Bat animation
     float m_animTimer{0.0f};
     int m_animFrame{0};
+    float m_baseY{0.0f};
+    float m_flutterTimer{0.0f};
 };
 
 #endif // OBSTACLE_H

@@ -31,11 +31,11 @@ AABB PowerUp::boundingBox() const {
     };
 }
 
-void PowerUp::render(SoftwareRasterizer& rasterizer, bool nightMode) {
+void PowerUp::render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY) {
     if (m_collected) return;
 
     int rx = static_cast<int>(m_x);
-    int ry = static_cast<int>(m_y);
+    int ry = static_cast<int>(m_y - cameraY);
 
     // Subtle pulsating glow circle around powerup
     uint32_t glowCol = 0x5500E5FF;
