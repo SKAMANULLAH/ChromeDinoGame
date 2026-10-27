@@ -95,7 +95,7 @@ struct Stalactite {
     float y{0.0f};      // base at ceiling Y
     float width{14.0f};
     float height{28.0f}; // length hanging downwards
-    bool isHazard{false};
+    bool isHazard{true};
 
     AABB boundingBox() const {
         if (!isHazard) {
@@ -104,9 +104,9 @@ struct Stalactite {
         int insetX = 2;
         return {
             static_cast<int>(x) + insetX,
-            static_cast<int>(y + height - 42.0f),
+            static_cast<int>(y),
             std::max(4, static_cast<int>(width) - insetX * 2),
-            42
+            static_cast<int>(height)
         };
     }
 };
@@ -135,8 +135,8 @@ struct CaveZone {
     float ceilingY{220.0f};
     float normalFloorY{225.0f};
     float deepFloorY{380.0f};
-    float entranceSlopeLen{180.0f};
-    float exitSlopeLen{180.0f};
+    float entranceSlopeLen{380.0f};
+    float exitSlopeLen{340.0f};
     bool hasLava{false};
     std::vector<Stalactite> stalactites;
     std::vector<RoostingBat> roostingBats;

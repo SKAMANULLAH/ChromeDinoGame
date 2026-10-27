@@ -93,7 +93,7 @@ AABB Obstacle::boundingBox() const {
     };
 }
 
-void Obstacle::render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY) {
+void Obstacle::render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY, bool /*inCave*/) {
     const Sprite& base = currentSprite();
     int rx = static_cast<int>(m_x);
     int ry = static_cast<int>(m_y - cameraY);

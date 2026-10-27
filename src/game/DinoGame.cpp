@@ -717,7 +717,8 @@ void DinoGame::render(SoftwareRasterizer& rasterizer) {
 
     // 5. Obstacles
     for (auto& obs : m_obstacles) {
-        obs.render(rasterizer, night, m_cameraY);
+        bool inCave = m_terrain.isInCave(obs.x()) || (m_terrain.getCeilingHeightAt(obs.x()) > 0.0f);
+        obs.render(rasterizer, night, m_cameraY, inCave);
     }
 
     // 6. Dino (Drop Shadow, 2D Affine Rotation, Bone Armor, Milestone Cosmetics)

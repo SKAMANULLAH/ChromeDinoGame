@@ -21,7 +21,7 @@ public:
     Obstacle(ObstacleType type, float x, int groundY, int pteroFlyHeightLevel = 0);
 
     void update(float dt, float speed, const Terrain* terrain = nullptr);
-    void render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY = 0.0f);
+    void render(SoftwareRasterizer& rasterizer, bool nightMode, float cameraY = 0.0f, bool inCave = false);
 
     bool isOffScreen() const { return m_x < -100.0f; }
     AABB boundingBox() const;
